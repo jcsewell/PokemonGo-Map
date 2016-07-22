@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import calendar
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, url_for, redirect
 from flask.json import JSONEncoder
 from datetime import datetime
 from s2sphere import *
+from pogom.pgoapi.utilities import get_pos_by_name
 
 from . import config
 from .models import Pokemon, Gym, Pokestop
@@ -47,16 +48,23 @@ class Pogom(Flask):
         d['lng']=config['ORIGINAL_LONGITUDE']
 
         return jsonify(d)
-
     def next_loc(self):
-        lat = request.args.get('lat', type=float)
-        lon = request.args.get('lon', type=float)
+        lat = request.form.get('lat', type=float)
+        lon = request.form.get('lon', type=float)
+        a = request.form.get('a', type=str)
         if not (lat and lon):
-            print('[-] Invalid next location: %s,%s' % (lat, lon))
-            return 'bad parameters', 400
+            if not (a):
+                print('[-] Invalid next location: %s,%s' % (lat, lon))
+                return 'bad parameters', 400
+            else:
+                position = get_pos_by_name(a)
+                config['ORIGINAL_LATITUDE'] = position[0]
+                config['ORIGINAL_LONGITUDE'] = position[1]
+                return redirect(url_for('fullmap'), code=302)
         else:
-            config['NEXT_LOCATION'] = {'lat': lat, 'lon': lon}
-            return 'ok'
+            config['ORIGINAL_LATITUDE'] = lat
+            config['ORIGINAL_LONGITUDE'] = lon
+            return redirect(url_for('fullmap'), code=302)
 
     def list_pokemon(self):
         # todo: check if client is android/iOS/Desktop for geolink, currently only supports android
